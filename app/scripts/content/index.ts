@@ -18,37 +18,55 @@ const contentRun = async () => {
     fansContent()
 
     const { base: WEC_base, blockLikeUsers: WEC_blockLikeUsers, downloadPost: WEC_downloadPost } = weiboExtendClassNames
+// 抽出公共逻辑：给指定的"图标容器"插入点赞列表按钮
+    const insertLikeListBtn = ({
+        $iconBox,
+        $commentIdHost,
+    }: {
+        $iconBox: any
+        $commentIdHost: any
+    }) => {
+        if ($iconBox.length < 1) return
+        if ($iconBox.find(`.${WEC_blockLikeUsers}`).length >= 1) return
+
+        const commentIdDom = $commentIdHost.find(`.${weiboExtendClassNames.commentId}`)
+        const commentText = commentIdDom?.parent()?.text() || ''
+        const commentId = commentIdDom?.data('cid') || ''
+        if (!commentId) return
+
+        const weiboExtendBlackBtn = $(`<div>`)
+            .text('点赞列表')
+            .addClass(
+                `${WEC_base} ${WEC_blockLikeUsers} wbpro-iconbed woo-box-flex woo-box-alignCenter woo-box-justifyCenter optHover`
+            )
+            .css('width', '80px')
+            .prependTo($iconBox)
+        weiboExtendBlackBtn.click(async () => {
+            const likeUsers = await fetchToGetLikeUsers({ commentId: commentId })
+            console.log(`likeUsers`, likeUsers)
+            console.log(`commentText`, commentText)
+            store.dispatch(updateBlackUserList({ blackUserList: likeUsers?.userList || [] }))
+            store.dispatch(updateBlackLikeText({ blackLikeText: commentText }))
+        })
+    }
+
+    // 情况一：首屏 / 一级评论结构 .wbpro-list > .item1 > .item1in
     $(document).on('mouseover', '.wbpro-list', (event: $.Event) => {
         const targetElement = event.currentTarget as HTMLElement
-        // console.log(`$(targetElement)`, targetElement)
-
         const item1 = $(targetElement).find('.item1')
-        const item2List = $(targetElement).find('.item2')
         const item1In = item1.find(`.item1in`)
         const item1IconBox = item1In.find(`.opt.woo-box-flex`)
-        if (item1IconBox.find(`.${WEC_blockLikeUsers}`).length < 1) {
-            const commentIdDom = item1In.find(`.${weiboExtendClassNames.commentId}`)
-            const commentText = commentIdDom?.parent()?.text() || ''
-            const commentId = commentIdDom?.data('cid') || ''
-            const weiboExtendBlackBtn = $(`<div>`)
-                .text('点赞列表')
-                .addClass(
-                    `${WEC_base} ${WEC_blockLikeUsers} wbpro-iconbed woo-box-flex woo-box-alignCenter woo-box-justifyCenter optHover`
-                )
-                .css('width', '80px')
-                .prependTo(item1IconBox)
-            weiboExtendBlackBtn.click(async () => {
-                const likeUsers = await fetchToGetLikeUsers({ commentId: commentId })
-                console.log(`likeUsers`, likeUsers)
-                // showUserList({
-                //     userList: likeUsers?.userList,
-                // })
-                console.log(`commentText`, commentText)
-                store.dispatch(updateBlackUserList({ blackUserList: likeUsers?.userList || [] }))
-                store.dispatch(updateBlackLikeText({ blackLikeText: commentText }))
-                // console.log(`showUserListR`, XShowUserListR({ userList: likeUsers?.userList || [] }))
-            })
-        }
+        insertLikeListBtn({ $iconBox: item1IconBox, $commentIdHost: item1In })
+    })
+
+    // 情况二：弹层"全部回复"里楼中楼结构 .item2 > .con2
+    $(document).on('mouseover', '.item2', (event: $.Event) => {
+        const targetElement = event.currentTarget as HTMLElement
+        const $item2 = $(targetElement)
+        const con2 = $item2.find('.con2')
+        if (con2.length < 1) return
+        const iconBox = con2.find('.opt.woo-box-flex')
+        insertLikeListBtn({ $iconBox: iconBox, $commentIdHost: con2 })
     })
 
     $(document).on('mouseover', 'div[video-active=true]', (event: $.Event) => {
